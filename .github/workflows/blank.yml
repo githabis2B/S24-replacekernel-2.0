@@ -35,8 +35,8 @@ jobs:
         run: |
           # 1. 下载文件（使用通配符忽略大小写）
           echo "正在从标签 'kernel' 下载文件..."
-          gh release download kernel --repo ${{ github.repository }} --pattern '*Image*' --clobber
-          gh release download kernel --repo ${{ github.repository }} --pattern '*boot.img*' --clobber
+          gh release download --repo ${{ github.repository }} --pattern 'Image' --clobber
+          gh release download --repo ${{ github.repository }} --pattern 'boot.img' --clobber
           
           # 2. 自动纠正大小写：将任何形式的 image 统一重命名为大写 Image
           # 这是为了确保后续 cp Image kernel 命令一定能找到文件
