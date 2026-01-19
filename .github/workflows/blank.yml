@@ -35,16 +35,9 @@ jobs:
         run: |
           # 1. 下载文件（使用通配符忽略大小写）
           echo "正在从标签 'kernel' 下载文件..."
-          gh release download --repo ${{ github.repository }} --pattern 'Image' --clobber
-          gh release download --repo ${{ github.repository }} --pattern 'boot.img' --clobber
+          gh release download kernel --repo ${{ github.repository }} --clobber
+
           
-          # 2. 自动纠正大小写：将任何形式的 image 统一重命名为大写 Image
-          # 这是为了确保后续 cp Image kernel 命令一定能找到文件
-          IMAGE_FILE=$(ls image* | head -n 1)
-          if [ "$IMAGE_FILE" != "Image" ]; then
-            mv "$IMAGE_FILE" Image
-          fi
-          echo "确认 Image 文件就位: $(ls -l Image)"
 
           # 3. 使用 magiskboot 解包官方 boot.img
           echo "正在解包官方镜像..."
