@@ -1,0 +1,75 @@
+name: S24 Boot Repack (Magisk v30.6)
+on:
+  workflow_dispatch:
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Script
+        uses: actions/checkout@v4
+
+      - name: Get Magisk v30.6 and Extract magiskboot
+        run: |
+          # 1. 下载官方 Magisk v30.6 APK (2026年最新稳定版)
+          echo "正在下载 Magisk v30.6..."
+          wget https://github.com/topjohnwu/Magisk/releases/download/v30.6/Magisk-v30.6.apk
+          
+          # 2. 提取适用于 Linux 虚拟机的 magiskboot 二进制文件
+          # Magisk APK 本质是 ZIP，lib/x86_64 目录下包含可在 GitHub Actions 运行的工具
+          unzip -q Magisk-v30.6.apk "lib/x86_64/libmagiskboot.so"
+          
+          # 3. 重命名并赋予权限
+          mv lib/x86_64/libmagiskboot.so ./magiskboot
+          chmod +x magiskboot
+          
+          # 验证工具是否可用
+          ./magiskboot --help | head -n 1
+
+      - name: Download and Execute Repack
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 1. 下载文件（使用通配符忽略大小写）
+          echo "正在从标签 'kernel' 下载文件..."
+          gh release download kernel --repo ${{ github.repository }} --pattern 'image*' --clobber
+          gh release download kernel --repo ${{ github.repository }} --pattern 'boot.img' --clobber
+          
+          # 2. 自动纠正大小写：将任何形式的 image 统一重命名为大写 Image
+          # 这是为了确保后续 cp Image kernel 命令一定能找到文件
+          IMAGE_FILE=$(ls image* | head -n 1)
+          if [ "$IMAGE_FILE" != "Image" ]; then
+            mv "$IMAGE_FILE" Image
+          fi
+          echo "确认 Image 文件就位: $(ls -l Image)"
+
+          # 3. 使用 magiskboot 解包官方 boot.img
+          echo "正在解包官方镜像..."
+          ./magiskboot unpack boot.img
+          
+          # 4. 替换内核
+          if [ -f "kernel" ]; then
+            echo "发现原厂内核，正在替换为集成 KernelSU 的 Image..."
+            rm -f kernel
+            cp Image kernel
+          else
+            echo "错误：magiskboot 未能识别 boot.img 中的内核部分，请确认 boot.img 是否为原厂提取"
+            exit 1
+          fi
+          
+          # 5. 重新打包
+          echo "正在使用 Magisk 官方技术重新打包..."
+          ./magiskboot repack boot.img S24_KSU_Repacked.img
+          
+          # 6. 验证产物大小
+          ls -lh S24_KSU_Repacked.img
+
+
+      - name: Upload Final Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: S24-KSU-Boot-Final2.0
+          path: S24_KSU_Repacked.img
